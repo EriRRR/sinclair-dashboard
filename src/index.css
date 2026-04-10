@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mejoras táctiles globales (sin romper Tailwind) */
+@layer base {
+  button, a, [role="button"] {
+    @apply cursor-pointer select-none;
+  }
+  input, select, textarea {
+    font-size: 16px; /* Evita zoom automático en iOS (no usar @apply aquí porque text-base es 1rem) */
+  }
+}
+
+/* Scroll suave */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Personalizar scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #e5e7eb; /* gray-200 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: #9ca3af; /* gray-400 */
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280; /* gray-500 */
+}
+
+/* Modo oscuro para scrollbars (opcional) */
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-track {
+    background: #1f2937;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #4b5563;
+  }
+}
+
+/* Al final del archivo, agrega: */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
