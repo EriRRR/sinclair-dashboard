@@ -15,7 +15,7 @@ import Reportes from './pages/Reportes'
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/sinclair-dashboard">
     <Toaster position="top-right" />
       <Routes>
         <Route path="/" element={<Layout />}>
