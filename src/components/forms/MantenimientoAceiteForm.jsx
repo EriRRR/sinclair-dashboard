@@ -6,10 +6,10 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-const AceiteForm = ({ tractores }) => {
+const AceiteForm = ({ unidades }) => {
   const [registros, setRegistros] = useState([])
   const [form, setForm] = useState({
-    tractor_id: '',
+    unidad_id: '',
     horometro_actual: '',
     ultimo_cambio: '',
     proximo_cambio: ''
@@ -22,7 +22,7 @@ const AceiteForm = ({ tractores }) => {
   const cargar = async () => {
     const { data, error } = await supabase
       .from('mantenimiento_aceite')
-      .select('*, vehiculos(numero, nombre)')
+      .select('*, unidaddestino(numero, nombre)')
       .order('id', { ascending: false })
     if (error) {
       console.error(error)
@@ -33,7 +33,7 @@ const AceiteForm = ({ tractores }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.tractor_id || !form.horometro_actual || !form.ultimo_cambio || !form.proximo_cambio) {
+    if (!form.unidad_id || !form.horometro_actual || !form.ultimo_cambio || !form.proximo_cambio) {
       toast.error('Completa todos los campos')
       return
     }
@@ -41,7 +41,7 @@ const AceiteForm = ({ tractores }) => {
     const estado = hrsFaltantes <= 0 ? 'Atrasado' : hrsFaltantes <= 50 ? 'Pendiente' : 'Al día'
 
     const { error } = await supabase.from('mantenimiento_aceite').insert([{
-      tractor_id: form.tractor_id,
+      unidad_id: form.unidad_id,
       horometro_actual: parseFloat(form.horometro_actual),
       ultimo_cambio: parseFloat(form.ultimo_cambio),
       proximo_cambio: parseFloat(form.proximo_cambio),
@@ -54,14 +54,14 @@ const AceiteForm = ({ tractores }) => {
       toast.error(error.message)
     } else {
       toast.success('Registro de aceite guardado')
-      setForm({ tractor_id: '', horometro_actual: '', ultimo_cambio: '', proximo_cambio: '' })
+      setForm({ unidad_id: '', horometro_actual: '', ultimo_cambio: '', proximo_cambio: '' })
       cargar()
     }
   }
 
   const prepararDatos = () => {
     return registros.map(r => ({
-      Tractor: `T${r.vehiculos?.numero} ${r.vehiculos?.nombre || ''}`,
+      'Unidad Destino': `U${r.unidaddestino?.numero} ${r.unidaddestino?.nombre || ''}`,
       'Horómetro Actual': r.horometro_actual?.toFixed(1),
       'Último Cambio (hrs)': r.ultimo_cambio?.toFixed(1),
       'Próximo Cambio (hrs)': r.proximo_cambio?.toFixed(1),
@@ -126,14 +126,14 @@ const AceiteForm = ({ tractores }) => {
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <select
             required
-            value={form.tractor_id}
-            onChange={e => setForm({ ...form, tractor_id: e.target.value })}
+            value={form.unidad_id}
+            onChange={e => setForm({ ...form, unidad_id: e.target.value })}
             className="border p-2 rounded"
           >
-            <option value="">Seleccionar Tractor</option>
-            {tractores.map(t => (
-              <option key={t.id} value={t.id}>
-                T{t.numero} - {t.nombre}
+            <option value="">Seleccionar Unidad Destino</option>
+            {unidades.map(u => (
+              <option key={u.id} value={u.id}>
+                U{u.numero} - {u.nombre}
               </option>
             ))}
           </select>
@@ -189,7 +189,7 @@ const AceiteForm = ({ tractores }) => {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-2 text-left">Tractor</th>
+                <th className="px-4 py-2 text-left">Unidad Destino</th>
                 <th className="px-4 py-2 text-left">Horómetro</th>
                 <th className="px-4 py-2 text-left">Último Cambio</th>
                 <th className="px-4 py-2 text-left">Próximo</th>
@@ -200,7 +200,7 @@ const AceiteForm = ({ tractores }) => {
             <tbody>
               {registros.map(r => (
                 <tr key={r.id} className="border-t">
-                  <td className="px-4 py-2">T{r.vehiculos?.numero} {r.vehiculos?.nombre}</td>
+                  <td className="px-4 py-2">U{r.unidaddestino?.numero} {r.unidaddestino?.nombre}</td>
                   <td className="px-4 py-2">{r.horometro_actual?.toFixed(1)}</td>
                   <td className="px-4 py-2">{r.ultimo_cambio?.toFixed(1)}</td>
                   <td className="px-4 py-2">{r.proximo_cambio?.toFixed(1)}</td>

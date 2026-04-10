@@ -1,21 +1,23 @@
 import { NavLink } from 'react-router-dom'
 import { 
   LayoutDashboard, 
-  Tractor, 
+  Truck,
   ClipboardList, 
   Wrench, 
   FolderTree, 
   BarChart3,
   X
 } from 'lucide-react'
+import { Package } from 'lucide-react'
 
 const Sidebar = ({ isOpen, onClose }) => {
   const navItems = [
     { path: '/', name: 'Dashboard', icon: LayoutDashboard },
-    { path: '/tractores', name: 'Tractores', icon: Tractor },
+    { path: '/unidades', name: 'Unidades', icon: Truck },
     { path: '/registro-diario', name: 'Registro Diario', icon: ClipboardList },
     { path: '/mantenimiento', name: 'Mantenimiento', icon: Wrench },
     { path: '/catalogos', name: 'Catálogos', icon: FolderTree },
+    { path: '/bodega-taller', name: 'Bodega Taller', icon: Package },
     { path: '/reportes', name: 'Reportes', icon: BarChart3 },
   ]
 

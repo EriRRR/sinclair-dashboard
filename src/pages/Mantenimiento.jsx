@@ -7,14 +7,14 @@ import OtrosForm from '../components/forms/MantenimientoOtrosForm'
 
 const Mantenimiento = () => {
   const [tab, setTab] = useState('aceite')
-  const [tractores, setTractores] = useState([])
+  const [unidades, setUnidades] = useState([])   // cambio de nombre
 
   useEffect(() => {
-    const fetchTractores = async () => {
-      const { data } = await supabase.from('vehiculos').select('id,numero,nombre')
-      setTractores(data || [])
+    const fetchUnidades = async () => {           // cambio de nombre
+      const { data } = await supabase.from('unidaddestino').select('id,numero,nombre')
+      setUnidades(data || [])
     }
-    fetchTractores()
+    fetchUnidades()
   }, [])
 
   return (
@@ -26,9 +26,9 @@ const Mantenimiento = () => {
         <button onClick={() => setTab('otros')} className={`px-4 py-2 ${tab === 'otros' ? 'border-b-2 border-blue-500 text-blue-600' : ''}`}>Otros Mantenimientos</button>
       </div>
 
-      {tab === 'aceite' && <AceiteForm tractores={tractores} />}
-      {tab === 'filtros' && <FiltrosForm tractores={tractores} />}
-      {tab === 'otros' && <OtrosForm tractores={tractores} />}
+      {tab === 'aceite' && <AceiteForm unidades={unidades} />}
+      {tab === 'filtros' && <FiltrosForm unidades={unidades} />}
+      {tab === 'otros' && <OtrosForm unidades={unidades} />}
     </div>
   )
 }

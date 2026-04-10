@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import Layout from './components/layout/Layout'
 import Dashboard from './pages/Dashboard'
-import Tractores from './pages/Tractores'
+import Unidades from './pages/Unidades'
 import RegistroDiario from './pages/RegistroDiario'
 import Mantenimiento from './pages/Mantenimiento'
 
@@ -13,6 +13,8 @@ import Labores from './pages/Catalogos/Labores'
 
 import Reportes from './pages/Reportes'
 
+import BodegaTaller from './pages/BodegaTaller'
+
 function App() {
   return (
     <BrowserRouter basename="/sinclair-dashboard">
@@ -20,7 +22,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Dashboard />} />
-          <Route path="tractores" element={<Tractores />} />
+          <Route path="/unidades" element={<Unidades />} />
           <Route path="registro-diario" element={<RegistroDiario />} />
           <Route path="mantenimiento" element={<Mantenimiento />} />
 
@@ -30,6 +32,8 @@ function App() {
           <Route path="catalogos/fincas" element={<Fincas />} />
           <Route path="catalogos/labores" element={<Labores />} />
 
+          <Route path="bodega-taller" element={<BodegaTaller />} />
+          
           <Route path="reportes" element={<Reportes />} />
         </Route>
       </Routes>

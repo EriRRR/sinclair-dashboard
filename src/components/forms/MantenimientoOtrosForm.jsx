@@ -6,10 +6,10 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-const OtrosForm = ({ tractores }) => {
+const OtrosForm = ({ unidades }) => {
   const [registros, setRegistros] = useState([])
   const [form, setForm] = useState({
-    tractor_id: '',
+    unidad_id: '',
     tipo_mantenimiento: '',
     descripcion: '',
     fecha_cambio: new Date().toISOString().split('T')[0],
@@ -24,7 +24,7 @@ const OtrosForm = ({ tractores }) => {
   const cargar = async () => {
     const { data, error } = await supabase
       .from('mantenimiento_otros')
-      .select('*, vehiculos(numero, nombre)')
+      .select('*, unidaddestino(numero, nombre)')
       .order('fecha_cambio', { ascending: false })
     if (error) console.error(error)
     else setRegistros(data || [])
@@ -32,13 +32,13 @@ const OtrosForm = ({ tractores }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.tractor_id || !form.tipo_mantenimiento || !form.fecha_cambio) {
+    if (!form.unidad_id || !form.tipo_mantenimiento || !form.fecha_cambio) {
       toast.error('Completa los campos obligatorios')
       return
     }
 
     const { error } = await supabase.from('mantenimiento_otros').insert([{
-      tractor_id: form.tractor_id,
+      unidad_id: form.unidad_id,
       tipo_mantenimiento: form.tipo_mantenimiento,
       descripcion: form.descripcion || null,
       fecha_cambio: form.fecha_cambio,
@@ -51,7 +51,7 @@ const OtrosForm = ({ tractores }) => {
     } else {
       toast.success('Registro de mantenimiento guardado')
       setForm({
-        tractor_id: '',
+        unidad_id: '',
         tipo_mantenimiento: '',
         descripcion: '',
         fecha_cambio: new Date().toISOString().split('T')[0],
@@ -64,7 +64,7 @@ const OtrosForm = ({ tractores }) => {
 
   const prepararDatos = () => {
     return registros.map(r => ({
-      Tractor: `T${r.vehiculos?.numero} ${r.vehiculos?.nombre || ''}`,
+      'Unidad Destino': `U${r.unidaddestino?.numero} ${r.unidaddestino?.nombre || ''}`,
       'Tipo Mantenimiento': r.tipo_mantenimiento,
       Descripción: r.descripcion || '-',
       'Fecha Cambio': r.fecha_cambio,
@@ -128,13 +128,13 @@ const OtrosForm = ({ tractores }) => {
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <select
             required
-            value={form.tractor_id}
-            onChange={e => setForm({ ...form, tractor_id: e.target.value })}
+            value={form.unidad_id}
+            onChange={e => setForm({ ...form, unidad_id: e.target.value })}
             className="border p-2 rounded"
           >
-            <option value="">Tractor</option>
-            {tractores.map(t => (
-              <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>
+            <option value="">Unidad Destino</option>
+            {unidades.map(u => (
+              <option key={u.id} value={u.id}>U{u.numero} - {u.nombre}</option>
             ))}
           </select>
           <input
@@ -199,7 +199,7 @@ const OtrosForm = ({ tractores }) => {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-2">Tractor</th>
+                <th className="px-4 py-2">Unidad Destino</th>
                 <th className="px-4 py-2">Tipo</th>
                 <th className="px-4 py-2">Descripción</th>
                 <th className="px-4 py-2">Fecha</th>
@@ -210,7 +210,7 @@ const OtrosForm = ({ tractores }) => {
             <tbody>
               {registros.map(r => (
                 <tr key={r.id} className="border-t">
-                  <td className="px-4 py-2">T{r.vehiculos?.numero} {r.vehiculos?.nombre}</td>
+                  <td className="px-4 py-2">U{r.unidaddestino?.numero} {r.unidaddestino?.nombre}</td>
                   <td className="px-4 py-2">{r.tipo_mantenimiento}</td>
                   <td className="px-4 py-2">{r.descripcion || '-'}</td>
                   <td className="px-4 py-2">{r.fecha_cambio}</td>

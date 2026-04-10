@@ -8,7 +8,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 const RegistroDiario = () => {
-  const [tractores, setTractores] = useState([])
+  const [unidadesDestino, setUnidadesDestino] = useState([])
   const [operadores, setOperadores] = useState([])
   const [labores, setLabores] = useState([])
   const [fincas, setFincas] = useState([])
@@ -24,12 +24,12 @@ const RegistroDiario = () => {
     return d.toISOString().split('T')[0]
   })
   const [fechaFin, setFechaFin] = useState(() => new Date().toISOString().split('T')[0])
-  const [tractorFiltro, setTractorFiltro] = useState('todos')
+  const [unidadDestinoFiltro, setUnidadDestinoFiltro] = useState('todos')
 
   const { register, control, handleSubmit, reset, watch, getValues, setValue } = useForm({
     defaultValues: {
       fecha: new Date().toISOString().split('T')[0],
-      tractor_id: '',
+      unidaddestino_id: '',
       operador_id: '',
       horometro_inicial: '',
       horometro_final: '',
@@ -45,13 +45,13 @@ const RegistroDiario = () => {
   useEffect(() => {
     const fetchCatalogos = async () => {
       const [trac, ops, labs, fins, impl] = await Promise.all([
-        supabase.from('vehiculos').select('id,numero,nombre'),
+        supabase.from('unidaddestino').select('id,numero,nombre'),
         supabase.from('operadores').select('id,nombre,apellido'),
         supabase.from('labores').select('id,nombre'),
         supabase.from('fincas').select('id,nombre'),
         supabase.from('implementos').select('id,nombre')
       ])
-      setTractores(trac.data || [])
+      setUnidadesDestino(trac.data || [])
       setOperadores(ops.data || [])
       setLabores(labs.data || [])
       setFincas(fins.data || [])
@@ -63,7 +63,7 @@ const RegistroDiario = () => {
 
   useEffect(() => {
     cargarRegistros()
-  }, [fechaInicio, fechaFin, tractorFiltro])
+  }, [fechaInicio, fechaFin, unidadDestinoFiltro])
 
   const cargarLotesDeFinca = async (fincaId) => {
     if (!fincaId) return
@@ -121,14 +121,14 @@ const RegistroDiario = () => {
         .select(`
           id,
           fecha,
-          tractor_id,
+          unidaddestino_id,
           horometro_inicial,
           horometro_final,
           total_horas,
           litros_diesel,
           responsable_mecanizacion,
           observaciones,
-          vehiculos (numero, nombre),
+          unidaddestino (numero, nombre),
           operadores (nombre, apellido),
           detalle_actividades (
             id,
@@ -146,8 +146,8 @@ const RegistroDiario = () => {
         .lte('fecha', fechaFin)
         .order('fecha', { ascending: false })
 
-      if (tractorFiltro !== 'todos') {
-        query = query.eq('tractor_id', tractorFiltro)
+      if (unidadDestinoFiltro !== 'todos') {
+        query = query.eq('unidaddestino_id', unidadDestinoFiltro)
       }
 
       const { data, error } = await query
@@ -161,7 +161,6 @@ const RegistroDiario = () => {
     }
   }
 
-  // Aplanar registros para la tabla y exportación
   const aplanarRegistros = () => {
     const filas = []
     registros.forEach(reg => {
@@ -170,7 +169,7 @@ const RegistroDiario = () => {
         if (lotes.length === 0) {
           filas.push({
             Fecha: reg.fecha,
-            Tractor: `T${reg.vehiculos?.numero || ''} ${reg.vehiculos?.nombre || ''}`,
+            UnidadDestino: `T${reg.unidaddestino?.numero || ''} ${reg.unidaddestino?.nombre || ''}`,
             'INV. EQUIPO': det.implementos?.nombre || '',
             'Horometro Inicial': reg.horometro_inicial,
             'Horometro Final': reg.horometro_final,
@@ -186,7 +185,7 @@ const RegistroDiario = () => {
           lotes.forEach(lote => {
             filas.push({
               Fecha: reg.fecha,
-              Tractor: `T${reg.vehiculos?.numero || ''} ${reg.vehiculos?.nombre || ''}`,
+              UnidadDestino: `T${reg.unidaddestino?.numero || ''} ${reg.unidaddestino?.nombre || ''}`,
               'INV. EQUIPO': det.implementos?.nombre || '',
               'Horometro Inicial': reg.horometro_inicial,
               'Horometro Final': reg.horometro_final,
@@ -256,78 +255,77 @@ const RegistroDiario = () => {
     toast.success('Exportado a PDF')
   }
 
- const onSubmit = async (data) => {
-  const detallesValidos = data.detalles.filter(d => d.labor_id)
+  const onSubmit = async (data) => {
+    const detallesValidos = data.detalles.filter(d => d.labor_id)
 
-  if (detallesValidos.length === 0) {
-    toast.error('Debe agregar al menos una labor')
-    return
-  }
+    if (detallesValidos.length === 0) {
+      toast.error('Debe agregar al menos una labor')
+      return
+    }
 
-  const loadingToast = toast.loading('Guardando...')
+    const loadingToast = toast.loading('Guardando...')
 
-  try {
-    const { data: registro, error: err1 } = await supabase
-      .from('registros_diarios')
-      .insert([{
-        fecha: data.fecha,
-        tractor_id: parseInt(data.tractor_id),
-        operador_id: parseInt(data.operador_id),
-        horometro_inicial: parseFloat(data.horometro_inicial),
-        horometro_final: parseFloat(data.horometro_final),
-        litros_diesel: data.litros_diesel ? parseFloat(data.litros_diesel) : null,
-        responsable_mecanizacion: data.responsable_mecanizacion || null,
-        observaciones: data.observaciones || null
-      }])
-      .select()
-
-    if (err1) throw err1
-
-    const registroId = registro[0].id
-
-    for (const det of detallesValidos) {
-      const { data: detalle, error: errDet } = await supabase
-        .from('detalle_actividades')
+    try {
+      const { data: registro, error: err1 } = await supabase
+        .from('registros_diarios')
         .insert([{
-          registro_id: registroId,
-          implemento_id: det.implemento_id ? parseInt(det.implemento_id) : null,
-          labor_id: parseInt(det.labor_id),
-          finca_id: det.finca_id ? parseInt(det.finca_id) : null,
-          areamz: det.areamz ? parseFloat(det.areamz) : null
+          fecha: data.fecha,
+          unidaddestino_id: parseInt(data.unidaddestino_id),
+          operador_id: parseInt(data.operador_id),
+          horometro_inicial: parseFloat(data.horometro_inicial),
+          horometro_final: parseFloat(data.horometro_final),
+          litros_diesel: data.litros_diesel ? parseFloat(data.litros_diesel) : null,
+          responsable_mecanizacion: data.responsable_mecanizacion || null,
+          observaciones: data.observaciones || null
         }])
         .select()
 
-      if (errDet) throw errDet
+      if (err1) throw err1
 
-      const detalleId = detalle[0].id
+      const registroId = registro[0].id
 
-      if (det.lotes_ids && det.lotes_ids.length > 0) {
-        const lotesToInsert = det.lotes_ids.map(loteId => ({
-          detalle_actividad_id: detalleId,
-          lote_id: parseInt(loteId)
-        }))
+      for (const det of detallesValidos) {
+        const { data: detalle, error: errDet } = await supabase
+          .from('detalle_actividades')
+          .insert([{
+            registro_id: registroId,
+            implemento_id: det.implemento_id ? parseInt(det.implemento_id) : null,
+            labor_id: parseInt(det.labor_id),
+            finca_id: det.finca_id ? parseInt(det.finca_id) : null,
+            areamz: det.areamz ? parseFloat(det.areamz) : null
+          }])
+          .select()
 
-        const { error: errLotes } = await supabase
-          .from('detalle_actividad_lotes')
-          .insert(lotesToInsert)
+        if (errDet) throw errDet
 
-        if (errLotes) throw errLotes
+        const detalleId = detalle[0].id
+
+        if (det.lotes_ids && det.lotes_ids.length > 0) {
+          const lotesToInsert = det.lotes_ids.map(loteId => ({
+            detalle_actividad_id: detalleId,
+            lote_id: parseInt(loteId)
+          }))
+
+          const { error: errLotes } = await supabase
+            .from('detalle_actividad_lotes')
+            .insert(lotesToInsert)
+
+          if (errLotes) throw errLotes
+        }
       }
+
+      toast.dismiss(loadingToast)
+      toast.success('Guardado con éxito')
+
+      reset()
+      cargarRegistros()
+
+    } catch (error) {
+      toast.dismiss(loadingToast)
+      console.error(error)
+      toast.error('Error al guardar')
     }
-
-    // ✅ MENSAJE FINAL SIMPLE
-    toast.dismiss(loadingToast)
-    toast.success('Guardado con éxito')
-
-    reset()
-    cargarRegistros()
-
-  } catch (error) {
-    toast.dismiss(loadingToast)
-    console.error(error)
-    toast.error('Error al guardar')
   }
-}
 
   return (
     <div className="space-y-8">
@@ -338,13 +336,13 @@ const RegistroDiario = () => {
         <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800">SINCLAIR IMPORT GROUP</h2>
           <p className="text-gray-600">RC-025 LABORES MECANIZADAS</p>
-          <p className="text-sm text-gray-500">Temporada 2024-2025</p>
+          <p className="text-sm text-gray-500">Temporada 2026</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <div><label className="block text-sm font-medium text-gray-700">Fecha</label><input type="date" {...register('fecha')} className="mt-1 w-full border rounded-md p-2" required /></div>
-            <div><label className="block text-sm font-medium text-gray-700">Tractor</label><select {...register('tractor_id')} className="mt-1 w-full border rounded-md p-2" required><option value="">Seleccionar</option>{tractores.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}</select></div>
+            <div><label className="block text-sm font-medium text-gray-700">Unidad Destino</label><select {...register('unidaddestino_id')} className="mt-1 w-full border rounded-md p-2" required><option value="">Seleccionar</option>{unidadesDestino.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}</select></div>
             <div><label className="block text-sm font-medium text-gray-700">Operador</label><select {...register('operador_id')} className="mt-1 w-full border rounded-md p-2" required><option value="">Seleccionar</option>{operadores.map(o => <option key={o.id} value={o.id}>{o.nombre} {o.apellido}</option>)}</select></div>
             <div><label className="block text-sm font-medium text-gray-700">Horómetro Inicial</label><input type="number" step="0.1" {...register('horometro_inicial')} className="mt-1 w-full border rounded-md p-2" required /></div>
             <div><label className="block text-sm font-medium text-gray-700">Horómetro Final</label><input type="number" step="0.1" {...register('horometro_final')} className="mt-1 w-full border rounded-md p-2" required /></div>
@@ -418,7 +416,7 @@ const RegistroDiario = () => {
         <div className="p-4 border-b border-gray-200 bg-white grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label className="block text-xs text-gray-500">Fecha Inicio</label><input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className="w-full border rounded p-1.5 text-sm" /></div>
           <div><label className="block text-xs text-gray-500">Fecha Fin</label><input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="w-full border rounded p-1.5 text-sm" /></div>
-          <div><label className="block text-xs text-gray-500">Tractor</label><select value={tractorFiltro} onChange={e => setTractorFiltro(e.target.value)} className="w-full border rounded p-1.5 text-sm"><option value="todos">Todos</option>{tractores.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}</select></div>
+          <div><label className="block text-xs text-gray-500">Unidad Destino</label><select value={unidadDestinoFiltro} onChange={e => setUnidadDestinoFiltro(e.target.value)} className="w-full border rounded p-1.5 text-sm"><option value="todos">Todos</option>{unidadesDestino.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}</select></div>
         </div>
         <div className="overflow-x-auto">
           {cargando ? (
@@ -430,7 +428,7 @@ const RegistroDiario = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left">Fecha</th>
-                  <th className="px-4 py-3 text-left">Tractor</th>
+                  <th className="px-4 py-3 text-left">Unidad Destino</th>
                   <th className="px-4 py-3 text-left">INV. EQUIPO</th>
                   <th className="px-4 py-3 text-left">Horómetro Inicial</th>
                   <th className="px-4 py-3 text-left">Horómetro Final</th>
@@ -447,7 +445,7 @@ const RegistroDiario = () => {
                 {aplanarRegistros().map((fila, idx) => (
                   <tr key={idx} className="hover:bg-gray-50">
                     <td className="px-4 py-2 whitespace-nowrap">{fila.Fecha}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.Tractor}</td>
+                    <td className="px-4 py-2 whitespace-nowrap">{fila.UnidadDestino}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{fila['INV. EQUIPO']}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{fila['Horometro Inicial']}</td>
                     <td className="px-4 py-2 whitespace-nowrap">{fila['Horometro Final']}</td>

@@ -6,10 +6,10 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
-const FiltrosForm = ({ tractores }) => {
+const FiltrosForm = ({ unidades }) => {
   const [registros, setRegistros] = useState([])
   const [form, setForm] = useState({
-    tractor_id: '',
+    unidad_id: '',
     tipo_filtro: '',
     codigo_filtro: '',
     fecha_cambio: new Date().toISOString().split('T')[0],
@@ -25,7 +25,7 @@ const FiltrosForm = ({ tractores }) => {
   const cargar = async () => {
     const { data, error } = await supabase
       .from('mantenimiento_filtros')
-      .select('*, vehiculos(numero, nombre)')
+      .select('*, unidaddestino(numero, nombre)')
       .order('fecha_cambio', { ascending: false })
     if (error) console.error(error)
     else setRegistros(data || [])
@@ -33,13 +33,13 @@ const FiltrosForm = ({ tractores }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.tractor_id || !form.tipo_filtro || !form.fecha_cambio) {
+    if (!form.unidad_id || !form.tipo_filtro || !form.fecha_cambio) {
       toast.error('Completa los campos obligatorios')
       return
     }
 
     const { error } = await supabase.from('mantenimiento_filtros').insert([{
-      tractor_id: form.tractor_id,
+      unidad_id: form.unidad_id,
       tipo_filtro: form.tipo_filtro,
       codigo_filtro: form.codigo_filtro || null,
       fecha_cambio: form.fecha_cambio,
@@ -53,7 +53,7 @@ const FiltrosForm = ({ tractores }) => {
     } else {
       toast.success('Registro de filtro guardado')
       setForm({
-        tractor_id: '',
+        unidad_id: '',
         tipo_filtro: '',
         codigo_filtro: '',
         fecha_cambio: new Date().toISOString().split('T')[0],
@@ -67,7 +67,7 @@ const FiltrosForm = ({ tractores }) => {
 
   const prepararDatos = () => {
     return registros.map(r => ({
-      Tractor: `T${r.vehiculos?.numero} ${r.vehiculos?.nombre || ''}`,
+      'Unidad Destino': `U${r.unidaddestino?.numero} ${r.unidaddestino?.nombre || ''}`,
       'Tipo Filtro': r.tipo_filtro,
       'Código Filtro': r.codigo_filtro || '-',
       'Fecha Cambio': r.fecha_cambio,
@@ -132,13 +132,13 @@ const FiltrosForm = ({ tractores }) => {
         <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <select
             required
-            value={form.tractor_id}
-            onChange={e => setForm({ ...form, tractor_id: e.target.value })}
+            value={form.unidad_id}
+            onChange={e => setForm({ ...form, unidad_id: e.target.value })}
             className="border p-2 rounded"
           >
-            <option value="">Tractor</option>
-            {tractores.map(t => (
-              <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>
+            <option value="">Unidad Destino</option>
+            {unidades.map(u => (
+              <option key={u.id} value={u.id}>U{u.numero} - {u.nombre}</option>
             ))}
           </select>
           <input
@@ -210,7 +210,7 @@ const FiltrosForm = ({ tractores }) => {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100">
               <tr>
-                <th className="px-4 py-2">Tractor</th>
+                <th className="px-4 py-2">Unidad Destino</th>
                 <th className="px-4 py-2">Tipo Filtro</th>
                 <th className="px-4 py-2">Código</th>
                 <th className="px-4 py-2">Fecha Cambio</th>
@@ -221,7 +221,7 @@ const FiltrosForm = ({ tractores }) => {
             <tbody>
               {registros.map(r => (
                 <tr key={r.id} className="border-t">
-                  <td className="px-4 py-2">T{r.vehiculos?.numero} {r.vehiculos?.nombre}</td>
+                  <td className="px-4 py-2">U{r.unidaddestino?.numero} {r.unidaddestino?.nombre}</td>
                   <td className="px-4 py-2">{r.tipo_filtro}</td>
                   <td className="px-4 py-2">{r.codigo_filtro || '-'}</td>
                   <td className="px-4 py-2">{r.fecha_cambio}</td>
