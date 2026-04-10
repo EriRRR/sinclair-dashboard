@@ -19,12 +19,11 @@ const unidadesSugeridas = [
 const responsables = ['Omaydi', 'Dilver', 'Abby']
 
 const SalidaForm = ({ onSuccess }) => {
-  // 🔁 Cambio: antes vehiculos, ahora unidadesDestino
   const [unidadesDestino, setUnidadesDestino] = useState([])
   const [cabecera, setCabecera] = useState({
     fecha: new Date().toISOString().split('T')[0],
     n_requisicion: '',
-    unidaddestino_id: '',        // ← antes vehiculo_id
+    unidaddestino_id: '',
     persona_responsable: '',
     proveedor: '',
     otroResponsable: ''

@@ -95,23 +95,16 @@ const RegistroDiario = () => {
 
   const handleLoteToggle = (index, loteId, isChecked) => {
     const currentLotes = getValues(`detalles.${index}.lotes_ids`) || []
-    let newLotes
-    if (isChecked) {
-      newLotes = [...currentLotes, loteId]
-    } else {
-      newLotes = currentLotes.filter(id => id !== loteId)
-    }
+    let newLotes = isChecked ? [...currentLotes, loteId] : currentLotes.filter(id => id !== loteId)
     setValue(`detalles.${index}.lotes_ids`, newLotes)
   }
 
   const isLoteSelected = (index, loteId) => {
-    const lotes = getValues(`detalles.${index}.lotes_ids`) || []
+    const lotes = watch(`detalles.${index}.lotes_ids`) || []
     return lotes.includes(loteId)
   }
 
-  const getLotesDisponibles = (fincaId) => {
-    return todosLosLotes[fincaId] || []
-  }
+  const getLotesDisponibles = (fincaId) => todosLosLotes[fincaId] || []
 
   const cargarRegistros = async () => {
     setCargando(true)
@@ -119,25 +112,14 @@ const RegistroDiario = () => {
       let query = supabase
         .from('registros_diarios')
         .select(`
-          id,
-          fecha,
-          unidaddestino_id,
-          horometro_inicial,
-          horometro_final,
-          total_horas,
-          litros_diesel,
-          responsable_mecanizacion,
-          observaciones,
+          id, fecha, unidaddestino_id, horometro_inicial, horometro_final, total_horas,
+          litros_diesel, responsable_mecanizacion, observaciones,
           unidaddestino (numero, nombre),
           operadores (nombre, apellido),
           detalle_actividades (
-            id,
-            implemento_id,
-            implementos (nombre),
-            labor_id,
-            labores (nombre),
-            finca_id,
-            fincas (nombre),
+            id, implemento_id, implementos (nombre),
+            labor_id, labores (nombre),
+            finca_id, fincas (nombre),
             areamz,
             detalle_actividad_lotes (lote_id, lotes (numero))
           )
@@ -166,37 +148,24 @@ const RegistroDiario = () => {
     registros.forEach(reg => {
       reg.detalle_actividades?.forEach(det => {
         const lotes = det.detalle_actividad_lotes || []
+        const baseRow = {
+          Fecha: reg.fecha,
+          UnidadDestino: `T${reg.unidaddestino?.numero || ''} ${reg.unidaddestino?.nombre || ''}`,
+          'INV. EQUIPO': det.implementos?.nombre || '',
+          'Horometro Inicial': reg.horometro_inicial,
+          'Horometro Final': reg.horometro_final,
+          Horas: reg.total_horas,
+          Labor: det.labores?.nombre || '',
+          Zona: det.fincas?.nombre || '',
+          'Área Mz': det.areamz,
+          Operador: `${reg.operadores?.nombre || ''} ${reg.operadores?.apellido || ''}`,
+          'Responsable Mecanización': reg.responsable_mecanizacion || ''
+        }
         if (lotes.length === 0) {
-          filas.push({
-            Fecha: reg.fecha,
-            UnidadDestino: `T${reg.unidaddestino?.numero || ''} ${reg.unidaddestino?.nombre || ''}`,
-            'INV. EQUIPO': det.implementos?.nombre || '',
-            'Horometro Inicial': reg.horometro_inicial,
-            'Horometro Final': reg.horometro_final,
-            Horas: reg.total_horas,
-            Labor: det.labores?.nombre || '',
-            Zona: det.fincas?.nombre || '',
-            Lotes: '',
-            'Área Mz': det.areamz,
-            Operador: `${reg.operadores?.nombre || ''} ${reg.operadores?.apellido || ''}`,
-            'Responsable Mecanización': reg.responsable_mecanizacion || ''
-          })
+          filas.push({ ...baseRow, Lotes: '' })
         } else {
           lotes.forEach(lote => {
-            filas.push({
-              Fecha: reg.fecha,
-              UnidadDestino: `T${reg.unidaddestino?.numero || ''} ${reg.unidaddestino?.nombre || ''}`,
-              'INV. EQUIPO': det.implementos?.nombre || '',
-              'Horometro Inicial': reg.horometro_inicial,
-              'Horometro Final': reg.horometro_final,
-              Horas: reg.total_horas,
-              Labor: det.labores?.nombre || '',
-              Zona: det.fincas?.nombre || '',
-              Lotes: lote.lotes?.numero || '',
-              'Área Mz': det.areamz,
-              Operador: `${reg.operadores?.nombre || ''} ${reg.operadores?.apellido || ''}`,
-              'Responsable Mecanización': reg.responsable_mecanizacion || ''
-            })
+            filas.push({ ...baseRow, Lotes: lote.lotes?.numero || '' })
           })
         }
       })
@@ -205,75 +174,45 @@ const RegistroDiario = () => {
   }
 
   const exportarExcel = () => {
-    const datos = aplanarRegistros()
-    const ws = XLSX.utils.json_to_sheet(datos)
+    const ws = XLSX.utils.json_to_sheet(aplanarRegistros())
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Labores Mecanizadas')
-    XLSX.writeFile(wb, `labores_${fechaInicio}_a_${fechaFin}.xlsx`)
-    toast.success('Exportado a Excel')
-  }
-
-  const exportarCSV = () => {
-    const datos = aplanarRegistros()
-    const ws = XLSX.utils.json_to_sheet(datos)
-    const csv = XLSX.utils.sheet_to_csv(ws)
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const link = document.createElement('a')
-    const url = URL.createObjectURL(blob)
-    link.href = url
-    link.setAttribute('download', `labores_${fechaInicio}_a_${fechaFin}.csv`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    toast.success('Exportado a CSV')
+    XLSX.utils.book_append_sheet(wb, ws, 'Labores')
+    XLSX.writeFile(wb, `labores_${fechaInicio}.xlsx`)
   }
 
   const exportarPDF = () => {
     const datos = aplanarRegistros()
-    const doc = new jsPDF('landscape', 'mm', 'a4')
-    doc.setFontSize(16)
-    doc.text('SINCLAIR IMPORT GROUP', 14, 15)
-    doc.setFontSize(12)
-    doc.text('RC-025 LABORES MECANIZADAS', 14, 22)
-    doc.text(`Período: ${fechaInicio} al ${fechaFin}`, 14, 29)
-    doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 36)
-
+    const doc = new jsPDF('landscape')
     const columnas = Object.keys(datos[0] || {})
     const filas = datos.map(item => columnas.map(col => item[col] || ''))
-
-    autoTable(doc, {
-      head: [columnas],
-      body: filas,
-      startY: 45,
-      theme: 'striped',
-      styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
-      margin: { left: 10, right: 10 }
-    })
-    doc.save(`labores_${fechaInicio}_a_${fechaFin}.pdf`)
-    toast.success('Exportado a PDF')
+    autoTable(doc, { head: [columnas], body: filas, startY: 20, theme: 'striped', styles: { fontSize: 7 } })
+    doc.save('reporte.pdf')
   }
 
   const onSubmit = async (data) => {
-    const detallesValidos = data.detalles.filter(d => d.labor_id)
+    // 1. Validaciones de Negocio
+    const hIni = parseFloat(data.horometro_inicial)
+    const hFin = parseFloat(data.horometro_final)
 
-    if (detallesValidos.length === 0) {
-      toast.error('Debe agregar al menos una labor')
-      return
+    if (hFin <= hIni) {
+      return toast.error(`El horómetro final (${hFin}) debe ser mayor al inicial (${hIni})`)
     }
+
+    const detallesValidos = data.detalles.filter(d => d.labor_id)
+    if (detallesValidos.length === 0) return toast.error('Agregue al menos una labor')
 
     const loadingToast = toast.loading('Guardando...')
 
     try {
+      // 2. Insertar Registro Principal
       const { data: registro, error: err1 } = await supabase
         .from('registros_diarios')
         .insert([{
           fecha: data.fecha,
           unidaddestino_id: parseInt(data.unidaddestino_id),
           operador_id: parseInt(data.operador_id),
-          horometro_inicial: parseFloat(data.horometro_inicial),
-          horometro_final: parseFloat(data.horometro_final),
+          horometro_inicial: hIni,
+          horometro_final: hFin,
           litros_diesel: data.litros_diesel ? parseFloat(data.litros_diesel) : null,
           responsable_mecanizacion: data.responsable_mecanizacion || null,
           observaciones: data.observaciones || null
@@ -281,9 +220,9 @@ const RegistroDiario = () => {
         .select()
 
       if (err1) throw err1
-
       const registroId = registro[0].id
 
+      // 3. Insertar Detalles y Lotes
       for (const det of detallesValidos) {
         const { data: detalle, error: errDet } = await supabase
           .from('detalle_actividades')
@@ -297,58 +236,79 @@ const RegistroDiario = () => {
           .select()
 
         if (errDet) throw errDet
-
         const detalleId = detalle[0].id
 
-        if (det.lotes_ids && det.lotes_ids.length > 0) {
+        if (det.lotes_ids?.length > 0) {
           const lotesToInsert = det.lotes_ids.map(loteId => ({
             detalle_actividad_id: detalleId,
             lote_id: parseInt(loteId)
           }))
-
-          const { error: errLotes } = await supabase
-            .from('detalle_actividad_lotes')
-            .insert(lotesToInsert)
-
+          const { error: errLotes } = await supabase.from('detalle_actividad_lotes').insert(lotesToInsert)
           if (errLotes) throw errLotes
         }
       }
 
       toast.dismiss(loadingToast)
       toast.success('Guardado con éxito')
-
       reset()
       cargarRegistros()
-
     } catch (error) {
       toast.dismiss(loadingToast)
       console.error(error)
-      toast.error('Error al guardar')
+      toast.error('Error: ' + (error.message || 'No se pudo guardar'))
     }
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 p-4">
       <h1 className="text-2xl font-bold">Registro Diario de Labores</h1>
 
-      {/* Formulario */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+      <div className="bg-white rounded-lg shadow-md border border-gray-200">
         <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
           <h2 className="text-xl font-semibold text-gray-800">SINCLAIR IMPORT GROUP</h2>
           <p className="text-gray-600">RC-025 LABORES MECANIZADAS</p>
-          <p className="text-sm text-gray-500">Temporada 2026</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div><label className="block text-sm font-medium text-gray-700">Fecha</label><input type="date" {...register('fecha')} className="mt-1 w-full border rounded-md p-2" required /></div>
-            <div><label className="block text-sm font-medium text-gray-700">Unidad Destino</label><select {...register('unidaddestino_id')} className="mt-1 w-full border rounded-md p-2" required><option value="">Seleccionar</option>{unidadesDestino.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-gray-700">Operador</label><select {...register('operador_id')} className="mt-1 w-full border rounded-md p-2" required><option value="">Seleccionar</option>{operadores.map(o => <option key={o.id} value={o.id}>{o.nombre} {o.apellido}</option>)}</select></div>
-            <div><label className="block text-sm font-medium text-gray-700">Horómetro Inicial</label><input type="number" step="0.1" {...register('horometro_inicial')} className="mt-1 w-full border rounded-md p-2" required /></div>
-            <div><label className="block text-sm font-medium text-gray-700">Horómetro Final</label><input type="number" step="0.1" {...register('horometro_final')} className="mt-1 w-full border rounded-md p-2" required /></div>
-            <div><label className="block text-sm font-medium text-gray-700">Litros Diesel</label><input type="number" step="0.1" {...register('litros_diesel')} className="mt-1 w-full border rounded-md p-2" /></div>
-            <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700">Responsable Mecanización</label><input {...register('responsable_mecanizacion')} className="mt-1 w-full border rounded-md p-2" /></div>
-            <div><label className="block text-sm font-medium text-gray-700">Observaciones</label><textarea {...register('observaciones')} rows={2} className="mt-1 w-full border rounded-md p-2" /></div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Fecha</label>
+              <input type="date" {...register('fecha')} className="mt-1 w-full border rounded-md p-2" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Unidad Destino</label>
+              <select {...register('unidaddestino_id')} className="mt-1 w-full border rounded-md p-2" required>
+                <option value="">Seleccionar</option>
+                {unidadesDestino.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Operador</label>
+              <select {...register('operador_id')} className="mt-1 w-full border rounded-md p-2" required>
+                <option value="">Seleccionar</option>
+                {operadores.map(o => <option key={o.id} value={o.id}>{o.nombre} {o.apellido}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Horómetro Inicial</label>
+              <input type="number" step="0.1" {...register('horometro_inicial')} className="mt-1 w-full border rounded-md p-2" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Horómetro Final</label>
+              <input type="number" step="0.1" {...register('horometro_final')} className="mt-1 w-full border rounded-md p-2" required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Litros Diesel</label>
+              <input type="number" step="0.1" {...register('litros_diesel')} className="mt-1 w-full border rounded-md p-2" />
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700">Responsable Mecanización</label>
+              <input {...register('responsable_mecanizacion')} className="mt-1 w-full border rounded-md p-2" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Observaciones</label>
+              <textarea {...register('observaciones')} rows={2} className="mt-1 w-full border rounded-md p-2" />
+            </div>
           </div>
 
           <div className="border-t pt-4">
@@ -356,61 +316,48 @@ const RegistroDiario = () => {
             <div className="space-y-3">
               {fields.map((field, index) => {
                 const fincaId = watch(`detalles.${index}.finca_id`)
-                const lotesDisponibles = getLotesDisponibles(fincaId)
-                const isLoadingLotes = cargandoLotes[fincaId]
-                const lotesSeleccionados = watch(`detalles.${index}.lotes_ids`) || []
                 return (
-                  <div key={field.id} className="bg-gray-50 p-3 rounded space-y-2 border border-gray-200">
+                  <div key={field.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
                       <div><label className="block text-xs text-gray-500">INV. EQUIPO</label><select {...register(`detalles.${index}.implemento_id`)} className="w-full border rounded p-1 text-sm"><option value="">--</option>{implementos.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}</select></div>
                       <div><label className="block text-xs text-gray-500">Labor *</label><select {...register(`detalles.${index}.labor_id`)} className="w-full border rounded p-1 text-sm"><option value="">Seleccionar</option>{labores.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}</select></div>
-                      <div><label className="block text-xs text-gray-500">Zona (Finca)</label>
-                        <select value={fincaId || ''} onChange={(e) => handleFincaChange(index, e.target.value)} className="w-full border rounded p-1 text-sm">
-                          <option value="">Seleccionar</option>{fincas.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
-                        </select>
-                      </div>
+                      <div><label className="block text-xs text-gray-500">Zona (Finca)</label><select value={fincaId || ''} onChange={(e) => handleFincaChange(index, e.target.value)} className="w-full border rounded p-1 text-sm"><option value="">Seleccionar</option>{fincas.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select></div>
                       <div><label className="block text-xs text-gray-500">Área (Mz)</label><input placeholder="0.00" {...register(`detalles.${index}.areamz`)} className="w-full border rounded p-1 text-sm" /></div>
-                      <div className="flex justify-end items-end"><button type="button" onClick={() => remove(index)} className="text-red-500 text-sm px-2 py-1">Eliminar</button></div>
+                      <div className="flex items-end justify-end"><button type="button" onClick={() => remove(index)} className="text-red-500 text-sm font-medium hover:underline">Eliminar</button></div>
                     </div>
                     {fincaId && (
-                      <div className="mt-2">
-                        <label className="block text-xs text-gray-500 mb-1">Lotes (seleccione múltiples) {lotesSeleccionados.length > 0 && <span className="ml-2 text-green-600">✓ {lotesSeleccionados.length} seleccionado(s)</span>}</label>
-                        {isLoadingLotes ? <div className="bg-white border border-gray-300 rounded-md p-4 text-center text-gray-500">Cargando lotes...</div> : lotesDisponibles.length > 0 ? (
-                          <div className="bg-white border border-gray-300 rounded-md p-2 max-h-32 overflow-y-auto">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                              {lotesDisponibles.map(lote => (
-                                <label key={lote.id} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 p-1 rounded">
-                                  <input type="checkbox" checked={isLoteSelected(index, lote.id)} onChange={(e) => handleLoteToggle(index, lote.id, e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
-                                  <span>{lote.numero}</span>
-                                </label>
-                              ))}
-                            </div>
+                      <div className="mt-3">
+                        <label className="block text-xs text-gray-500 mb-2">Lotes disponibles:</label>
+                        <div className="bg-white border border-gray-300 rounded-md p-3 max-h-40 overflow-y-auto">
+                          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                            {getLotesDisponibles(fincaId).map(lote => (
+                              <label key={lote.id} className="flex items-center gap-2 text-sm p-1.5 border rounded hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" checked={isLoteSelected(index, lote.id)} onChange={(e) => handleLoteToggle(index, lote.id, e.target.checked)} className="rounded text-blue-600" />
+                                <span>{lote.numero}</span>
+                              </label>
+                            ))}
                           </div>
-                        ) : <div className="bg-yellow-50 border border-yellow-300 rounded-md p-2 text-center text-yellow-700 text-sm">⚠️ No hay lotes registrados para esta finca</div>}
+                        </div>
                       </div>
                     )}
                   </div>
                 )
               })}
-              <button type="button" onClick={() => append({ implemento_id: '', labor_id: '', finca_id: '', lotes_ids: [], areamz: '' })} className="text-blue-600 text-sm mt-2">+ Agregar otra labor</button>
+              <button type="button" onClick={() => append({ implemento_id: '', labor_id: '', finca_id: '', lotes_ids: [], areamz: '' })} className="text-blue-600 font-medium hover:underline">+ Agregar otra labor</button>
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700">Guardar Registro</button>
-          </div>
+          <div className="flex justify-end pt-4"><button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-md font-bold hover:bg-green-700 shadow-sm transition-colors">Guardar Registro</button></div>
         </form>
       </div>
 
-      {/* Listado de registros y exportación */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap justify-between items-center gap-4">
           <h2 className="text-xl font-semibold text-gray-800">Registros Anteriores</h2>
           <div className="flex gap-2">
-            <button onClick={exportarExcel} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm"><FileSpreadsheet size={16} /> Excel</button>
-            <button onClick={exportarCSV} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm"><FileJson size={16} /> CSV</button>
-            <button onClick={exportarPDF} className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm"><FileText size={16} /> PDF</button>
-            <button onClick={cargarRegistros} className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 text-white rounded text-sm"><RefreshCw size={16} /> Actualizar</button>
+            <button onClick={exportarExcel} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"><FileSpreadsheet size={16} /> Excel</button>
+            <button onClick={exportarPDF} className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"><FileText size={16} /> PDF</button>
+            <button onClick={cargarRegistros} className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"><RefreshCw size={16} /> Actualizar</button>
           </div>
         </div>
         <div className="p-4 border-b border-gray-200 bg-white grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -419,43 +366,23 @@ const RegistroDiario = () => {
           <div><label className="block text-xs text-gray-500">Unidad Destino</label><select value={unidadDestinoFiltro} onChange={e => setUnidadDestinoFiltro(e.target.value)} className="w-full border rounded p-1.5 text-sm"><option value="todos">Todos</option>{unidadesDestino.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}</select></div>
         </div>
         <div className="overflow-x-auto">
-          {cargando ? (
-            <p className="text-center py-8">Cargando...</p>
-          ) : registros.length === 0 ? (
-            <p className="text-center py-8 text-gray-500">No hay registros</p>
-          ) : (
-            <table className="min-w-[1200px] w-full divide-y divide-gray-200 text-sm">
+          {cargando ? <p className="text-center py-8">Cargando...</p> : (
+            <table className="min-w-[1200px] w-full divide-y divide-gray-200 text-xs">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left">Fecha</th>
-                  <th className="px-4 py-3 text-left">Unidad Destino</th>
-                  <th className="px-4 py-3 text-left">INV. EQUIPO</th>
-                  <th className="px-4 py-3 text-left">Horómetro Inicial</th>
-                  <th className="px-4 py-3 text-left">Horómetro Final</th>
-                  <th className="px-4 py-3 text-left">Horas</th>
-                  <th className="px-4 py-3 text-left">Labor</th>
-                  <th className="px-4 py-3 text-left">Zona</th>
-                  <th className="px-4 py-3 text-left">Lotes</th>
-                  <th className="px-4 py-3 text-left">Área Mz</th>
-                  <th className="px-4 py-3 text-left">Operador</th>
-                  <th className="px-4 py-3 text-left">Responsable</th>
+                  <th className="px-4 py-3 text-left">Fecha</th><th className="px-4 py-3 text-left">Unidad</th><th className="px-4 py-3 text-left">Equipo</th>
+                  <th className="px-4 py-3 text-left">Inicial</th><th className="px-4 py-3 text-left">Final</th><th className="px-4 py-3 text-left">Horas</th>
+                  <th className="px-4 py-3 text-left">Labor</th><th className="px-4 py-3 text-left">Zona</th><th className="px-4 py-3 text-left">Lotes</th>
+                  <th className="px-4 py-3 text-left">Mz</th><th className="px-4 py-3 text-left">Operador</th><th className="px-4 py-3 text-left">Responsable</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {aplanarRegistros().map((fila, idx) => (
                   <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.Fecha}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.UnidadDestino}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila['INV. EQUIPO']}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila['Horometro Inicial']}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila['Horometro Final']}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.Horas}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.Labor}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.Zona}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.Lotes}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila['Área Mz']}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila.Operador}</td>
-                    <td className="px-4 py-2 whitespace-nowrap">{fila['Responsable Mecanización']}</td>
+                    <td className="px-4 py-2">{fila.Fecha}</td><td className="px-4 py-2">{fila.UnidadDestino}</td><td className="px-4 py-2">{fila['INV. EQUIPO']}</td>
+                    <td className="px-4 py-2">{fila['Horometro Inicial']}</td><td className="px-4 py-2">{fila['Horometro Final']}</td><td className="px-4 py-2 font-bold">{fila.Horas}</td>
+                    <td className="px-4 py-2">{fila.Labor}</td><td className="px-4 py-2">{fila.Zona}</td><td className="px-4 py-2">{fila.Lotes}</td>
+                    <td className="px-4 py-2">{fila['Área Mz']}</td><td className="px-4 py-2">{fila.Operador}</td><td className="px-4 py-2">{fila['Responsable Mecanización']}</td>
                   </tr>
                 ))}
               </tbody>
@@ -467,4 +394,4 @@ const RegistroDiario = () => {
   )
 }
 
-export default RegistroDiario
+export default RegistroDiario;
