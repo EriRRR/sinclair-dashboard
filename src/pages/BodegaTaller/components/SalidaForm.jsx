@@ -4,19 +4,11 @@ import { Plus, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 const unidadesSugeridas = [
-  'Unidades',
-  'Litros',
-  'Galones',
-  'Kilogramos',
-  'Metros',
-  'Piezas',
-  'Cajas',
-  'Paquetes',
-  'Rollos',
-  'Pares'
+  'Unidades', 'Litros', 'Galones', 'Kilogramos', 'Metros',
+  'Piezas', 'Cajas', 'Paquetes', 'Rollos', 'Pares'
 ]
 
-const responsables = ['Omaydi', 'Dilver', 'Abby']
+const opcionesEntregadoPor = ['Omaidy', 'Dilver', 'Abby', 'Otro']
 
 const SalidaForm = ({ onSuccess }) => {
   const [unidadesDestino, setUnidadesDestino] = useState([])
@@ -24,19 +16,19 @@ const SalidaForm = ({ onSuccess }) => {
     fecha: new Date().toISOString().split('T')[0],
     n_requisicion: '',
     unidaddestino_id: '',
+    entregado_por: '',
     persona_responsable: '',
     proveedor: '',
-    otroResponsable: ''
+    otroEntregado: ''
   })
   const [lineas, setLineas] = useState([
     { descripcion: '', codigo: '', cantidad: '', unidad_medida: '', observacion_motivo: '', costo_aplicado_a: '' }
   ])
-  const [responsablePersonalizado, setResponsablePersonalizado] = useState(false)
+  const [mostrarOtroEntregado, setMostrarOtroEntregado] = useState(false)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const fetchUnidades = async () => {
-      // 🔁 Cambio: tabla 'unidaddestino'
       const { data } = await supabase.from('unidaddestino').select('id, numero, nombre').order('numero')
       if (data) setUnidadesDestino(data)
     }
@@ -70,16 +62,18 @@ const SalidaForm = ({ onSuccess }) => {
     }
     setLoading(true)
 
-    const responsableFinal = cabecera.persona_responsable === 'Otro' ? cabecera.otroResponsable : cabecera.persona_responsable
+    // Determinar el valor final de entregado_por
+    const entregadoFinal = cabecera.entregado_por === 'Otro' ? cabecera.otroEntregado : cabecera.entregado_por
 
-    // Insertar cabecera con unidaddestino_id
+    // Insertar cabecera
     const { data: cab, error: errCab } = await supabase
       .from('salidas_bodega_cabecera')
       .insert([{
         fecha: cabecera.fecha,
         n_requisicion: cabecera.n_requisicion || null,
         unidaddestino_id: cabecera.unidaddestino_id ? parseInt(cabecera.unidaddestino_id) : null,
-        persona_responsable: responsableFinal || null,
+        entregado_por: entregadoFinal || null,
+        persona_responsable: cabecera.persona_responsable || null,
         proveedor: cabecera.proveedor || null
       }])
       .select()
@@ -109,16 +103,18 @@ const SalidaForm = ({ onSuccess }) => {
       await supabase.from('salidas_bodega_cabecera').delete().eq('id', cabeceraId)
     } else {
       toast.success(`Registro guardado con ${lineasInsert.length} repuesto(s)`)
+      // Limpiar formulario
       setCabecera({
         fecha: new Date().toISOString().split('T')[0],
         n_requisicion: '',
         unidaddestino_id: '',
+        entregado_por: '',
         persona_responsable: '',
         proveedor: '',
-        otroResponsable: ''
+        otroEntregado: ''
       })
       setLineas([{ descripcion: '', codigo: '', cantidad: '', unidad_medida: '', observacion_motivo: '', costo_aplicado_a: '' }])
-      setResponsablePersonalizado(false)
+      setMostrarOtroEntregado(false)
       onSuccess()
     }
     setLoading(false)
@@ -128,6 +124,7 @@ const SalidaForm = ({ onSuccess }) => {
     <div className="bg-white p-4 rounded shadow">
       <h3 className="text-lg font-semibold mb-3">Nueva Salida de Bodega</h3>
       <form onSubmit={handleSubmit}>
+        {/* Datos generales */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded">
           <div>
             <label className="block text-sm font-medium">Unidad Destino (equipo/vehículo)</label>
@@ -145,15 +142,40 @@ const SalidaForm = ({ onSuccess }) => {
             <input type="text" placeholder="Ej: 7566" value={cabecera.n_requisicion} onChange={e => setCabecera({...cabecera, n_requisicion: e.target.value})} className="mt-1 border p-2 rounded w-full" />
           </div>
           <div>
-            <label className="block text-sm font-medium">Persona Responsable *</label>
-            <select value={cabecera.persona_responsable} onChange={e => { setCabecera({...cabecera, persona_responsable: e.target.value}); setResponsablePersonalizado(e.target.value === 'Otro') }} className="mt-1 border p-2 rounded w-full" required>
-              <option value="">Seleccionar responsable</option>
-              {responsables.map(r => <option key={r} value={r}>{r}</option>)}
-              <option value="Otro">Otro</option>
+            <label className="block text-sm font-medium">Entregado por *</label>
+            <select
+              value={cabecera.entregado_por}
+              onChange={e => {
+                const val = e.target.value
+                setCabecera({...cabecera, entregado_por: val})
+                setMostrarOtroEntregado(val === 'Otro')
+              }}
+              className="mt-1 border p-2 rounded w-full"
+              required
+            >
+              <option value="">Seleccionar</option>
+              {opcionesEntregadoPor.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
-            {responsablePersonalizado && (
-              <input type="text" placeholder="Nombre del responsable" value={cabecera.otroResponsable} onChange={e => setCabecera({...cabecera, otroResponsable: e.target.value})} className="mt-2 border p-2 rounded w-full" required />
+            {mostrarOtroEntregado && (
+              <input
+                type="text"
+                placeholder="Nombre de quien entrega"
+                value={cabecera.otroEntregado}
+                onChange={e => setCabecera({...cabecera, otroEntregado: e.target.value})}
+                className="mt-2 border p-2 rounded w-full"
+                required
+              />
             )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Persona responsable</label>
+            <input
+              type="text"
+              placeholder="Ej: Hector Fortin"
+              value={cabecera.persona_responsable}
+              onChange={e => setCabecera({...cabecera, persona_responsable: e.target.value})}
+              className="mt-1 border p-2 rounded w-full"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium">Proveedor (opcional)</label>
@@ -161,6 +183,7 @@ const SalidaForm = ({ onSuccess }) => {
           </div>
         </div>
 
+        {/* Líneas de repuestos */}
         <div className="mb-4">
           <h4 className="font-semibold mb-2">Repuestos / Materiales</h4>
           {lineas.map((linea, idx) => (

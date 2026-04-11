@@ -6,11 +6,18 @@ import {
   Wrench, 
   FolderTree, 
   BarChart3,
-  X
+  X,
+  LogOut,
+  User
 } from 'lucide-react'
-import { Package } from 'lucide-react'
+import { Package, Ruler } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
 
 const Sidebar = ({ isOpen, onClose }) => {
+  const { user, logout } = useAuth()
+
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'
+  
   const navItems = [
     { path: '/', name: 'Dashboard', icon: LayoutDashboard },
     { path: '/unidades', name: 'Unidades', icon: Truck },
@@ -18,6 +25,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     { path: '/mantenimiento', name: 'Mantenimiento', icon: Wrench },
     { path: '/catalogos', name: 'Catálogos', icon: FolderTree },
     { path: '/bodega-taller', name: 'Bodega Taller', icon: Package },
+    { path: '/mecanizacion', name: 'Mecanización', icon: Ruler },
     { path: '/reportes', name: 'Reportes', icon: BarChart3 },
   ]
 
@@ -36,6 +44,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         fixed top-0 left-0 h-full bg-gray-900 text-white z-30
         transition-transform duration-300 ease-in-out
         w-64 lg:translate-x-0 lg:static lg:z-auto
+        flex flex-col
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-4 flex justify-between items-center border-b border-gray-700">
@@ -45,7 +54,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           </button>
         </div>
         
-        <nav className="mt-6">
+        <nav className="flex-1 mt-6">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -62,6 +71,21 @@ const Sidebar = ({ isOpen, onClose }) => {
             </NavLink>
           ))}
         </nav>
+
+        {/* Footer con usuario y logout */}
+        <div className="p-4 border-t border-gray-700">
+          <div className="flex items-center gap-2 text-sm text-gray-300 truncate mb-3">
+            <User size={18} className="text-gray-400" />
+            <span>{displayName}</span>
+          </div>
+          <button
+            onClick={() => logout()}
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-red-600 hover:text-white rounded transition"
+          >
+            <LogOut size={18} />
+            <span>Cerrar sesión</span>
+          </button>
+        </div>
       </aside>
     </>
   )

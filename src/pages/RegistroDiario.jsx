@@ -72,7 +72,7 @@ const RegistroDiario = () => {
     try {
       const { data, error } = await supabase
         .from('lotes')
-        .select('id, numero')
+        .select('id, numero, area_mz')
         .eq('finca_id', fincaId)
         .order('numero')
       if (error) throw error
@@ -85,9 +85,26 @@ const RegistroDiario = () => {
     }
   }
 
+  const actualizarAreaTotal = (index) => {
+    const lotesIds = getValues(`detalles.${index}.lotes_ids`) || []
+    const fincaId = getValues(`detalles.${index}.finca_id`)
+    if (!fincaId) {
+      setValue(`detalles.${index}.areamz`, '')
+      return
+    }
+    const lotesDisponibles = todosLosLotes[fincaId] || []
+    let totalArea = 0
+    lotesIds.forEach(loteId => {
+      const lote = lotesDisponibles.find(l => l.id === loteId)
+      if (lote && lote.area_mz) totalArea += lote.area_mz
+    })
+    setValue(`detalles.${index}.areamz`, totalArea.toFixed(2))
+  }
+
   const handleFincaChange = async (index, fincaId) => {
     setValue(`detalles.${index}.finca_id`, fincaId)
     setValue(`detalles.${index}.lotes_ids`, [])
+    setValue(`detalles.${index}.areamz`, '')
     if (fincaId) {
       await cargarLotesDeFinca(fincaId)
     }
@@ -95,8 +112,37 @@ const RegistroDiario = () => {
 
   const handleLoteToggle = (index, loteId, isChecked) => {
     const currentLotes = getValues(`detalles.${index}.lotes_ids`) || []
-    let newLotes = isChecked ? [...currentLotes, loteId] : currentLotes.filter(id => id !== loteId)
+    let newLotes
+    if (isChecked) {
+      newLotes = [...currentLotes, loteId]
+    } else {
+      newLotes = currentLotes.filter(id => id !== loteId)
+    }
     setValue(`detalles.${index}.lotes_ids`, newLotes)
+    actualizarAreaTotal(index)
+  }
+
+  const seleccionarTodosLotes = (index) => {
+    const fincaId = getValues(`detalles.${index}.finca_id`)
+    if (!fincaId) return
+    const lotes = todosLosLotes[fincaId] || []
+    const todosIds = lotes.map(l => l.id)
+    setValue(`detalles.${index}.lotes_ids`, todosIds)
+    actualizarAreaTotal(index)
+  }
+
+  const deseleccionarTodosLotes = (index) => {
+    setValue(`detalles.${index}.lotes_ids`, [])
+    actualizarAreaTotal(index)
+  }
+
+  const isAllSelected = (index) => {
+    const fincaId = getValues(`detalles.${index}.finca_id`)
+    if (!fincaId) return false
+    const lotesDisponibles = todosLosLotes[fincaId] || []
+    if (lotesDisponibles.length === 0) return false
+    const lotesSeleccionados = getValues(`detalles.${index}.lotes_ids`) || []
+    return lotesSeleccionados.length === lotesDisponibles.length
   }
 
   const isLoteSelected = (index, loteId) => {
@@ -121,7 +167,7 @@ const RegistroDiario = () => {
             labor_id, labores (nombre),
             finca_id, fincas (nombre),
             areamz,
-            detalle_actividad_lotes (lote_id, lotes (numero))
+            detalle_actividad_lotes (lote_id, lotes (numero, area_mz))
           )
         `)
         .gte('fecha', fechaInicio)
@@ -178,33 +224,66 @@ const RegistroDiario = () => {
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Labores')
     XLSX.writeFile(wb, `labores_${fechaInicio}.xlsx`)
+    toast.success('Exportado a Excel')
+  }
+
+  const exportarCSV = () => {
+    const datos = aplanarRegistros()
+    const ws = XLSX.utils.json_to_sheet(datos)
+    const csv = XLSX.utils.sheet_to_csv(ws)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.href = url
+    link.setAttribute('download', `labores_${fechaInicio}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    toast.success('Exportado a CSV')
   }
 
   const exportarPDF = () => {
     const datos = aplanarRegistros()
-    const doc = new jsPDF('landscape')
+    const doc = new jsPDF('landscape', 'mm', 'a4')
+    doc.setFontSize(16)
+    doc.text('Registro de Labores', 14, 15)
+    doc.setFontSize(10)
+    doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 22)
     const columnas = Object.keys(datos[0] || {})
     const filas = datos.map(item => columnas.map(col => item[col] || ''))
-    autoTable(doc, { head: [columnas], body: filas, startY: 20, theme: 'striped', styles: { fontSize: 7 } })
-    doc.save('reporte.pdf')
+    autoTable(doc, {
+      head: [columnas],
+      body: filas,
+      startY: 30,
+      theme: 'striped',
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+      margin: { left: 10, right: 10 }
+    })
+    doc.save(`labores_${fechaInicio}.pdf`)
+    toast.success('Exportado a PDF')
+  }
+
+  const handleRemove = (index) => {
+    if (fields.length > 1) {
+      remove(index)
+    } else {
+      toast.error('Debe haber al menos una actividad')
+    }
   }
 
   const onSubmit = async (data) => {
-    // 1. Validaciones de Negocio
     const hIni = parseFloat(data.horometro_inicial)
     const hFin = parseFloat(data.horometro_final)
-
     if (hFin <= hIni) {
       return toast.error(`El horómetro final (${hFin}) debe ser mayor al inicial (${hIni})`)
     }
-
     const detallesValidos = data.detalles.filter(d => d.labor_id)
     if (detallesValidos.length === 0) return toast.error('Agregue al menos una labor')
 
     const loadingToast = toast.loading('Guardando...')
-
     try {
-      // 2. Insertar Registro Principal
       const { data: registro, error: err1 } = await supabase
         .from('registros_diarios')
         .insert([{
@@ -218,11 +297,9 @@ const RegistroDiario = () => {
           observaciones: data.observaciones || null
         }])
         .select()
-
       if (err1) throw err1
       const registroId = registro[0].id
 
-      // 3. Insertar Detalles y Lotes
       for (const det of detallesValidos) {
         const { data: detalle, error: errDet } = await supabase
           .from('detalle_actividades')
@@ -234,7 +311,6 @@ const RegistroDiario = () => {
             areamz: det.areamz ? parseFloat(det.areamz) : null
           }])
           .select()
-
         if (errDet) throw errDet
         const detalleId = detalle[0].id
 
@@ -247,7 +323,6 @@ const RegistroDiario = () => {
           if (errLotes) throw errLotes
         }
       }
-
       toast.dismiss(loadingToast)
       toast.success('Guardado con éxito')
       reset()
@@ -319,20 +394,82 @@ const RegistroDiario = () => {
                 return (
                   <div key={field.id} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
-                      <div><label className="block text-xs text-gray-500">INV. EQUIPO</label><select {...register(`detalles.${index}.implemento_id`)} className="w-full border rounded p-1 text-sm"><option value="">--</option>{implementos.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}</select></div>
-                      <div><label className="block text-xs text-gray-500">Labor *</label><select {...register(`detalles.${index}.labor_id`)} className="w-full border rounded p-1 text-sm"><option value="">Seleccionar</option>{labores.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}</select></div>
-                      <div><label className="block text-xs text-gray-500">Zona (Finca)</label><select value={fincaId || ''} onChange={(e) => handleFincaChange(index, e.target.value)} className="w-full border rounded p-1 text-sm"><option value="">Seleccionar</option>{fincas.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}</select></div>
-                      <div><label className="block text-xs text-gray-500">Área (Mz)</label><input placeholder="0.00" {...register(`detalles.${index}.areamz`)} className="w-full border rounded p-1 text-sm" /></div>
-                      <div className="flex items-end justify-end"><button type="button" onClick={() => remove(index)} className="text-red-500 text-sm font-medium hover:underline">Eliminar</button></div>
+                      <div>
+                        <label className="block text-xs text-gray-500">INV. EQUIPO</label>
+                        <select {...register(`detalles.${index}.implemento_id`)} className="w-full border rounded p-1 text-sm">
+                          <option value="">--</option>
+                          {implementos.map(i => <option key={i.id} value={i.id}>{i.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Labor *</label>
+                        <select {...register(`detalles.${index}.labor_id`)} className="w-full border rounded p-1 text-sm">
+                          <option value="">Seleccionar</option>
+                          {labores.map(l => <option key={l.id} value={l.id}>{l.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Zona (Finca)</label>
+                        <select
+                          value={fincaId || ''}
+                          onChange={(e) => handleFincaChange(index, e.target.value)}
+                          className="w-full border rounded p-1 text-sm"
+                        >
+                          <option value="">Seleccionar</option>
+                          {fincas.map(f => <option key={f.id} value={f.id}>{f.nombre}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500">Área (Mz)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          {...register(`detalles.${index}.areamz`)}
+                          readOnly
+                          className="w-full border rounded p-1 text-sm bg-gray-100"
+                        />
+                      </div>
+                      <div className="flex items-end justify-end">
+                        {fields.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemove(index)}
+                            className="text-red-500 text-sm font-medium hover:underline"
+                          >
+                            Eliminar
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {fincaId && (
                       <div className="mt-3">
-                        <label className="block text-xs text-gray-500 mb-2">Lotes disponibles:</label>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="block text-xs text-gray-500">Lotes disponibles:</label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isAllSelected(index)) {
+                                deseleccionarTodosLotes(index)
+                              } else {
+                                seleccionarTodosLotes(index)
+                              }
+                            }}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            {isAllSelected(index) ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                          </button>
+                        </div>
                         <div className="bg-white border border-gray-300 rounded-md p-3 max-h-40 overflow-y-auto">
                           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
                             {getLotesDisponibles(fincaId).map(lote => (
                               <label key={lote.id} className="flex items-center gap-2 text-sm p-1.5 border rounded hover:bg-gray-50 cursor-pointer">
-                                <input type="checkbox" checked={isLoteSelected(index, lote.id)} onChange={(e) => handleLoteToggle(index, lote.id, e.target.checked)} className="rounded text-blue-600" />
+                                <input
+                                  type="checkbox"
+                                  checked={isLoteSelected(index, lote.id)}
+                                  onChange={(e) => handleLoteToggle(index, lote.id, e.target.checked)}
+                                  className="rounded text-blue-600"
+                                />
                                 <span>{lote.numero}</span>
                               </label>
                             ))}
@@ -343,11 +480,21 @@ const RegistroDiario = () => {
                   </div>
                 )
               })}
-              <button type="button" onClick={() => append({ implemento_id: '', labor_id: '', finca_id: '', lotes_ids: [], areamz: '' })} className="text-blue-600 font-medium hover:underline">+ Agregar otra labor</button>
+              <button
+                type="button"
+                onClick={() => append({ implemento_id: '', labor_id: '', finca_id: '', lotes_ids: [], areamz: '' })}
+                className="text-blue-600 font-medium hover:underline"
+              >
+                + Agregar otra labor
+              </button>
             </div>
           </div>
 
-          <div className="flex justify-end pt-4"><button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-md font-bold hover:bg-green-700 shadow-sm transition-colors">Guardar Registro</button></div>
+          <div className="flex justify-end pt-4">
+            <button type="submit" className="bg-green-600 text-white px-8 py-3 rounded-md font-bold hover:bg-green-700 shadow-sm transition-colors">
+              Guardar Registro
+            </button>
+          </div>
         </form>
       </div>
 
@@ -355,34 +502,73 @@ const RegistroDiario = () => {
         <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-wrap justify-between items-center gap-4">
           <h2 className="text-xl font-semibold text-gray-800">Registros Anteriores</h2>
           <div className="flex gap-2">
-            <button onClick={exportarExcel} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"><FileSpreadsheet size={16} /> Excel</button>
-            <button onClick={exportarPDF} className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"><FileText size={16} /> PDF</button>
-            <button onClick={cargarRegistros} className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"><RefreshCw size={16} /> Actualizar</button>
+            <button onClick={exportarExcel} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">
+              <FileSpreadsheet size={16} /> Excel
+            </button>
+            <button onClick={exportarCSV} className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">
+              <FileJson size={16} /> CSV
+            </button>
+            <button onClick={exportarPDF} className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">
+              <FileText size={16} /> PDF
+            </button>
+            <button onClick={cargarRegistros} className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 text-white rounded text-sm hover:bg-gray-700">
+              <RefreshCw size={16} /> Actualizar
+            </button>
           </div>
         </div>
         <div className="p-4 border-b border-gray-200 bg-white grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div><label className="block text-xs text-gray-500">Fecha Inicio</label><input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className="w-full border rounded p-1.5 text-sm" /></div>
-          <div><label className="block text-xs text-gray-500">Fecha Fin</label><input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="w-full border rounded p-1.5 text-sm" /></div>
-          <div><label className="block text-xs text-gray-500">Unidad Destino</label><select value={unidadDestinoFiltro} onChange={e => setUnidadDestinoFiltro(e.target.value)} className="w-full border rounded p-1.5 text-sm"><option value="todos">Todos</option>{unidadesDestino.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}</select></div>
+          <div>
+            <label className="block text-xs text-gray-500">Fecha Inicio</label>
+            <input type="date" value={fechaInicio} onChange={e => setFechaInicio(e.target.value)} className="w-full border rounded p-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500">Fecha Fin</label>
+            <input type="date" value={fechaFin} onChange={e => setFechaFin(e.target.value)} className="w-full border rounded p-1.5 text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500">Unidad Destino</label>
+            <select value={unidadDestinoFiltro} onChange={e => setUnidadDestinoFiltro(e.target.value)} className="w-full border rounded p-1.5 text-sm">
+              <option value="todos">Todos</option>
+              {unidadesDestino.map(t => <option key={t.id} value={t.id}>T{t.numero} - {t.nombre}</option>)}
+            </select>
+          </div>
         </div>
         <div className="overflow-x-auto">
-          {cargando ? <p className="text-center py-8">Cargando...</p> : (
+          {cargando ? (
+            <p className="text-center py-8">Cargando...</p>
+          ) : (
             <table className="min-w-[1200px] w-full divide-y divide-gray-200 text-xs">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left">Fecha</th><th className="px-4 py-3 text-left">Unidad</th><th className="px-4 py-3 text-left">Equipo</th>
-                  <th className="px-4 py-3 text-left">Inicial</th><th className="px-4 py-3 text-left">Final</th><th className="px-4 py-3 text-left">Horas</th>
-                  <th className="px-4 py-3 text-left">Labor</th><th className="px-4 py-3 text-left">Zona</th><th className="px-4 py-3 text-left">Lotes</th>
-                  <th className="px-4 py-3 text-left">Mz</th><th className="px-4 py-3 text-left">Operador</th><th className="px-4 py-3 text-left">Responsable</th>
+                  <th className="px-4 py-3 text-left">Fecha</th>
+                  <th className="px-4 py-3 text-left">Unidad</th>
+                  <th className="px-4 py-3 text-left">Equipo</th>
+                  <th className="px-4 py-3 text-left">Inicial</th>
+                  <th className="px-4 py-3 text-left">Final</th>
+                  <th className="px-4 py-3 text-left">Horas</th>
+                  <th className="px-4 py-3 text-left">Labor</th>
+                  <th className="px-4 py-3 text-left">Zona</th>
+                  <th className="px-4 py-3 text-left">Lotes</th>
+                  <th className="px-4 py-3 text-left">Mz</th>
+                  <th className="px-4 py-3 text-left">Operador</th>
+                  <th className="px-4 py-3 text-left">Responsable</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {aplanarRegistros().map((fila, idx) => (
                   <tr key={idx} className="hover:bg-gray-50">
-                    <td className="px-4 py-2">{fila.Fecha}</td><td className="px-4 py-2">{fila.UnidadDestino}</td><td className="px-4 py-2">{fila['INV. EQUIPO']}</td>
-                    <td className="px-4 py-2">{fila['Horometro Inicial']}</td><td className="px-4 py-2">{fila['Horometro Final']}</td><td className="px-4 py-2 font-bold">{fila.Horas}</td>
-                    <td className="px-4 py-2">{fila.Labor}</td><td className="px-4 py-2">{fila.Zona}</td><td className="px-4 py-2">{fila.Lotes}</td>
-                    <td className="px-4 py-2">{fila['Área Mz']}</td><td className="px-4 py-2">{fila.Operador}</td><td className="px-4 py-2">{fila['Responsable Mecanización']}</td>
+                    <td className="px-4 py-2">{fila.Fecha}</td>
+                    <td className="px-4 py-2">{fila.UnidadDestino}</td>
+                    <td className="px-4 py-2">{fila['INV. EQUIPO']}</td>
+                    <td className="px-4 py-2">{fila['Horometro Inicial']}</td>
+                    <td className="px-4 py-2">{fila['Horometro Final']}</td>
+                    <td className="px-4 py-2 font-bold">{fila.Horas}</td>
+                    <td className="px-4 py-2">{fila.Labor}</td>
+                    <td className="px-4 py-2">{fila.Zona}</td>
+                    <td className="px-4 py-2">{fila.Lotes}</td>
+                    <td className="px-4 py-2">{fila['Área Mz']}</td>
+                    <td className="px-4 py-2">{fila.Operador}</td>
+                    <td className="px-4 py-2">{fila['Responsable Mecanización']}</td>
                   </tr>
                 ))}
               </tbody>
@@ -394,4 +580,4 @@ const RegistroDiario = () => {
   )
 }
 
-export default RegistroDiario;
+export default RegistroDiario

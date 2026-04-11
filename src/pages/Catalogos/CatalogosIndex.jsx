@@ -27,20 +27,20 @@ const CatalogosIndex = () => {
       componente: <Fincas />
     },
     { 
-      id: 'labores', 
-      nombre: 'Labores', 
-      icono: ClipboardList, 
-      color: 'text-purple-600',
-      bgActivo: 'border-purple-500',
-      componente: <Labores />
-    },
-    { 
       id: 'lotes', 
       nombre: 'Lotes', 
       icono: Layers, 
       color: 'text-orange-600',
       bgActivo: 'border-orange-500',
       componente: <Lotes />
+    },
+    { 
+      id: 'labores', 
+      nombre: 'Labores', 
+      icono: ClipboardList, 
+      color: 'text-purple-600',
+      bgActivo: 'border-purple-500',
+      componente: <Labores />
     },
     { 
       id: 'implementos', 
