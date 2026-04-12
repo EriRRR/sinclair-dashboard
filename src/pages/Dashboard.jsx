@@ -272,7 +272,7 @@ const Dashboard = () => {
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="flex flex-wrap gap-4 items-end">
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Unidad Destino</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Unidad</label>
             <select value={unidadSeleccionada} onChange={(e) => setUnidadSeleccionada(e.target.value)} className="w-full border rounded-lg p-2">
               <option value="todos">Todas las unidades</option>
               {unidadesList.map(u => <option key={u.id} value={u.id}>T{u.numero} - {u.nombre}</option>)}
@@ -297,7 +297,7 @@ const Dashboard = () => {
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <div className="bg-white p-4 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4">Horas trabajadas por unidad destino ({getPeriodoTexto()}){unidadSeleccionada !== 'todos' && ` - Unidad filtrada`}</h2>
+          <h2 className="text-lg font-semibold mb-4">Horas trabajadas por unidades ({getPeriodoTexto()}){unidadSeleccionada !== 'todos' && ` - Unidad filtrada`}</h2>
           {horasPorUnidad.length > 0 ? <ResponsiveContainer width="100%" height={300}><BarChart data={horasPorUnidad} margin={{ top: 5, right: 20, left: 20, bottom: 5 }}><XAxis dataKey="nombre" tick={{ fontSize: 12 }} angle={-45} textAnchor="end" height={80} /><YAxis /><Tooltip /><Bar dataKey="horas" fill="#3b82f6" /></BarChart></ResponsiveContainer> : <p className="text-gray-500 text-center py-8">No hay datos</p>}
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
@@ -345,7 +345,7 @@ const Dashboard = () => {
 
       {/* Horómetro actual */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm mb-8">
-        <div className="flex items-center gap-2 mb-4"><Tractor className="text-blue-500" size={24} /><h3 className="text-lg font-semibold">Horómetro Actual de Unidades Destino</h3></div>
+        <div className="flex items-center gap-2 mb-4"><Tractor className="text-blue-500" size={24} /><h3 className="text-lg font-semibold">Horómetro Actual de Unidades</h3></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {unidadesHorometro.map(unidad => (
             <div key={unidad.numero} className="border rounded-lg p-3 bg-gray-50 hover:shadow transition">

@@ -8,10 +8,13 @@ import {
   BarChart3,
   X,
   LogOut,
-  User
+  User,
+  Package, 
+  Ruler 
 } from 'lucide-react'
-import { Package, Ruler } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
+// 1. Importa tu logo aquí
+import LogoImg from '../../assets/SinclairLogo.png'
 
 const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth()
@@ -47,14 +50,23 @@ const Sidebar = ({ isOpen, onClose }) => {
         flex flex-col
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
+        {/* SECCIÓN DEL LOGO */}
         <div className="p-4 flex justify-between items-center border-b border-gray-700">
-          <span className="text-xl font-bold">Sinclair Group</span>
+          <div className="flex items-center gap-3">
+            <img 
+              src={LogoImg} 
+              alt="Sinclair Group Logo" 
+              className="h-8 w-auto object-contain" 
+            />
+            <span className="text-xl font-bold tracking-tight">Sinclair Group</span>
+          </div>
+          
           <button onClick={onClose} className="lg:hidden text-gray-300 hover:text-white">
             <X size={24} />
           </button>
         </div>
         
-        <nav className="flex-1 mt-6">
+        <nav className="flex-1 mt-6 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
@@ -76,7 +88,7 @@ const Sidebar = ({ isOpen, onClose }) => {
         <div className="p-4 border-t border-gray-700">
           <div className="flex items-center gap-2 text-sm text-gray-300 truncate mb-3">
             <User size={18} className="text-gray-400" />
-            <span>{displayName}</span>
+            <span className="truncate">{displayName}</span>
           </div>
           <button
             onClick={() => logout()}
