@@ -19,7 +19,7 @@ import Register from './pages/Register'
 
 function App() {
   return (
-    <BrowserRouter basename="/sinclair-dashboard">
+    <BrowserRouter>
       <AuthProvider>
         <Toaster position="top-right" />
         <Routes>
